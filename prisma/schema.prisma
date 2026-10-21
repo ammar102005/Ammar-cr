@@ -1,0 +1,70 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+enum JobStatus { QUEUED RUNNING DONE DONE_WITH_ERRORS FAILED CANCELED }
+enum CertStatus { VALID REVOKED }
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  locale String @default("ar")
+  createdAt DateTime @default(now())
+  projects Project[]
+}
+model Project {
+  id String @id @default(cuid())
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  design Design?
+  jobs GenerationJob[]
+  @@index([ownerId])
+}
+model Design {
+  id String @id @default(cuid())
+  projectId String @unique
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  schemaVersion Int @default(1)
+  data Json
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt
+}
+model GenerationJob {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status JobStatus @default(QUEUED)
+  total Int
+  done Int @default(0)
+  failed Int @default(0)
+  designSnapshot Json
+  outputs Json?
+  error String?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  recipients Recipient[]
+  @@index([projectId])
+}
+model Recipient {
+  id String @id @default(cuid())
+  jobId String
+  job GenerationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  rowNo Int
+  data Json
+  certificate Certificate?
+  @@index([jobId])
+}
+model Certificate {
+  id String @id @default(cuid())
+  recipientId String @unique
+  recipient Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  token String @unique
+  number String
+  status CertStatus @default(VALID)
+  warning Boolean @default(false)
+  issuedAt DateTime @default(now())
+  revokedAt DateTime?
+}

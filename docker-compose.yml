@@ -1,0 +1,23 @@
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://certify:certify@db:5432/certify
+    REDIS_URL: redis://redis:6379
+    STORAGE_DIR: /data
+  volumes: ["storage:/data"]
+  depends_on: [db, redis]
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: certify, POSTGRES_PASSWORD: certify, POSTGRES_DB: certify }
+    volumes: ["pg:/var/lib/postgresql/data"]
+  redis: { image: "redis:7" }
+  api:
+    <<: *app
+    command: sh -c "npx prisma db push --skip-generate && node dist/main.js"
+    ports: ["3000:3000"]
+  worker:
+    <<: *app
+    command: node dist/worker.js
+volumes: { pg: {}, storage: {} }
